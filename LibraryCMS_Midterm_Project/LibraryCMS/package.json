@@ -1,0 +1,19 @@
+{
+  "name": "college-management-library-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SIA 101 Library subsystem API with mock JSON data and Swagger UI",
+  "main": "server/app.js",
+  "scripts": {
+    "start": "node server/app.js",
+    "dev": "node --watch server/app.js",
+    "test": "node --test",
+    "check": "node --check server/app.js && node --check server/routes/index.js && node --test"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "swagger-ui-express": "^5.0.1",
+    "yamljs": "^0.3.0",
+    "dotenv": "^16.4.7"
+  }
+}

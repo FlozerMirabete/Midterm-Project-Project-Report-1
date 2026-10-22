@@ -1,0 +1,4 @@
+const store=require('../data/store');const problem=(status,title,detail,instance)=>({type:'about:blank',title,status,detail,instance});
+function list(studentId){return store.penalties.filter(x=>!studentId||x.studentId===studentId)}
+function update(id,input,path){const row=store.penalties.find(x=>x.id===Number(id));if(!row)return {error:problem(404,'Not Found',`Penalty ${id} was not found.`,path)};if(!['UNPAID','PAID'].includes(input.paymentStatus))return {error:problem(400,'Bad Request','paymentStatus must be UNPAID or PAID.',path)};row.paymentStatus=input.paymentStatus;if(row.paymentStatus==='PAID'){store.bookDamages.filter(x=>x.bookId===row.bookId&&x.studentId===row.studentId).forEach(x=>x.status='RESOLVED');}require('./library.service').getLibrary(row.studentId,path);return {data:row}}
+module.exports={list,update};

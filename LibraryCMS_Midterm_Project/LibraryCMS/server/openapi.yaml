@@ -1,0 +1,410 @@
+openapi: 3.0.3
+info:
+  title: College Management System - Library API
+  version: 1.0.0
+  description: >-
+    Library subsystem API. Lost or damaged books create a penalty (sample default PHP 500).
+    A student cannot be CLEARED while a book issue is unresolved or a penalty is unpaid.
+servers:
+  - url: http://localhost:3007
+    description: Local development server
+tags:
+  - name: Library Records
+  - name: Books
+  - name: Book Issues
+  - name: Penalties
+  - name: Subsystem Integrations
+paths:
+  /api/v1/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: API is running
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [ok], example: ok }
+  /api/v1/library:
+    get:
+      tags: [Library Records]
+      summary: List library clearance records
+      responses:
+        '200':
+          description: List returned
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/LibraryRecord' }
+    post:
+      tags: [Library Records]
+      summary: Create a library clearance record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewLibraryRecord' }
+            example: { studentId: '2026-00999' }
+      responses:
+        '201':
+          description: Record created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LibraryRecord' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /api/v1/library/{studentId}:
+    parameters:
+      - $ref: '#/components/parameters/StudentId'
+    get:
+      tags: [Library Records]
+      summary: Get clearance for a student
+      responses:
+        '200':
+          description: Clearance record
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LibraryRecord' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Library Records]
+      summary: Refresh or update a student's clearance record
+      description: A request to set CLEARED is rejected if unresolved book issues or unpaid penalties exist.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateLibraryRecord' }
+            example: { status: CLEARED }
+      responses:
+        '200':
+          description: Record updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LibraryRecord' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Library Records]
+      summary: Delete a library record
+      responses:
+        '204': { description: Record deleted }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/books:
+    get:
+      tags: [Books]
+      summary: List and search book records
+      parameters:
+        - in: query
+          name: studentId
+          schema: { type: string }
+        - in: query
+          name: bookStatus
+          schema: { $ref: '#/components/schemas/BookStatus' }
+        - in: query
+          name: search
+          description: Search by title or book ID
+          schema: { type: string }
+      responses:
+        '200':
+          description: Book records
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/BookRecord' }
+    post:
+      tags: [Books]
+      summary: Create a book borrowing record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewBookRecord' }
+            example: { bookId: 'BK-0009', title: 'Web Development Basics', studentId: '2026-00999', bookStatus: BORROWED, borrowDate: '2026-10-10', dueDate: '2026-10-24' }
+      responses:
+        '201':
+          description: Book record created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookRecord' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /api/v1/books/{id}:
+    parameters:
+      - $ref: '#/components/parameters/RecordId'
+    get:
+      tags: [Books]
+      summary: Get a book record
+      responses:
+        '200':
+          description: Book record
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookRecord' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Books]
+      summary: Update a book record
+      description: Setting status to LOST or DAMAGED automatically creates an unresolved issue and an unpaid sample penalty.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateBookRecord' }
+            example: { bookStatus: LOST }
+      responses:
+        '200':
+          description: Book updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookRecord' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Books]
+      summary: Delete a book record
+      responses:
+        '204': { description: Record deleted }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/book-damages:
+    get:
+      tags: [Book Issues]
+      summary: List lost or damaged book records
+      parameters:
+        - in: query
+          name: studentId
+          schema: { type: string }
+      responses:
+        '200':
+          description: Book issue records
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/BookDamage' }
+    post:
+      tags: [Book Issues]
+      summary: Record a lost or damaged book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewBookDamage' }
+            example: { bookId: 'BK-0010', studentId: '2026-00999', damageType: DAMAGED, description: 'Pages torn and book cannot be used', penaltyAmount: 500 }
+      responses:
+        '201':
+          description: Issue and unpaid penalty recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookDamage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /api/v1/penalties:
+    get:
+      tags: [Penalties]
+      summary: List penalties
+      parameters:
+        - in: query
+          name: studentId
+          schema: { type: string }
+      responses:
+        '200':
+          description: Penalties
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Penalty' }
+  /api/v1/penalties/{id}:
+    parameters:
+      - $ref: '#/components/parameters/RecordId'
+    put:
+      tags: [Penalties]
+      summary: Update penalty payment status
+      description: Marking a penalty PAID resolves the associated book issue in this mock-data project. Real payment confirmation should come from Finance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdatePenalty' }
+            example: { paymentStatus: PAID }
+      responses:
+        '200':
+          description: Penalty updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Penalty' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/integration/registrar/students/{studentId}:
+    get:
+      tags: [Subsystem Integrations]
+      summary: Example call to Registrar subsystem
+      description: Mock adapter only. studentId is an external key owned by Registrar; replace this adapter with the agreed Registrar API URL and schema.
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: Mock Registrar response
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegistrarStudent' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/integration/finance/students/{studentId}/penalties:
+    get:
+      tags: [Subsystem Integrations]
+      summary: Example call to Finance subsystem
+      description: Mock adapter only. studentId is an external key owned by Finance; replace this adapter with the agreed Finance API URL and schema.
+      parameters:
+        - $ref: '#/components/parameters/StudentId'
+      responses:
+        '200':
+          description: Mock Finance response
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FinancePenaltyResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  parameters:
+    StudentId:
+      in: path
+      name: studentId
+      required: true
+      description: External student key supplied by/owned by the partner subsystem; Library references it but does not own the Registrar/Finance record.
+      schema: { type: string, example: '2026-00123' }
+    RecordId:
+      in: path
+      name: id
+      required: true
+      schema: { type: integer, minimum: 1, example: 1 }
+  responses:
+    BadRequest:
+      description: Invalid input or clearance rule prevented the operation
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+          example: { type: 'about:blank', title: 'Bad Request', status: 400, detail: 'Student cannot be cleared while lost/damaged book records or penalties remain unresolved.', instance: '/api/v1/library/2026-00123' }
+    NotFound:
+      description: Requested record was not found
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+          example: { type: 'about:blank', title: 'Not Found', status: 404, detail: 'Record was not found.', instance: '/api/v1/library/unknown' }
+  schemas:
+    LibraryRecord:
+      type: object
+      required: [id, studentId, status, updatedAt]
+      properties:
+        id: { type: integer, example: 1 }
+        studentId: { type: string, example: '2026-00123' }
+        status: { type: string, enum: [CLEARED, NOT_CLEARED], example: NOT_CLEARED }
+        updatedAt: { type: string, format: date-time }
+    NewLibraryRecord:
+      type: object
+      required: [studentId]
+      properties:
+        studentId: { type: string, example: '2026-00999' }
+    UpdateLibraryRecord:
+      type: object
+      properties:
+        status: { type: string, enum: [CLEARED, NOT_CLEARED] }
+    BookStatus:
+      type: string
+      enum: [AVAILABLE, BORROWED, RETURNED, LOST, DAMAGED]
+    BookRecord:
+      type: object
+      required: [id, bookId, title, studentId, bookStatus]
+      properties:
+        id: { type: integer, example: 1 }
+        bookId: { type: string, example: 'BK-0001' }
+        title: { type: string, example: 'Introduction to Programming' }
+        studentId: { type: string, example: '2026-00123' }
+        borrowDate: { type: string, format: date, nullable: true }
+        dueDate: { type: string, format: date, nullable: true }
+        returnDate: { type: string, format: date, nullable: true }
+        bookStatus: { $ref: '#/components/schemas/BookStatus' }
+    NewBookRecord:
+      type: object
+      required: [bookId, title, studentId, bookStatus]
+      properties:
+        bookId: { type: string }
+        title: { type: string }
+        studentId: { type: string }
+        borrowDate: { type: string, format: date }
+        dueDate: { type: string, format: date }
+        returnDate: { type: string, format: date, nullable: true }
+        bookStatus: { $ref: '#/components/schemas/BookStatus' }
+    UpdateBookRecord:
+      type: object
+      properties:
+        title: { type: string }
+        studentId: { type: string }
+        borrowDate: { type: string, format: date }
+        dueDate: { type: string, format: date }
+        returnDate: { type: string, format: date, nullable: true }
+        bookStatus: { $ref: '#/components/schemas/BookStatus' }
+    BookDamage:
+      type: object
+      required: [id, bookId, studentId, damageType, penaltyAmount, status]
+      properties:
+        id: { type: integer }
+        bookId: { type: string }
+        studentId: { type: string }
+        damageType: { type: string, enum: [LOST, DAMAGED] }
+        description: { type: string }
+        penaltyAmount: { type: number, format: double, example: 500, description: Sample PHP amount; set according to the book's replacement value in real use. }
+        status: { type: string, enum: [UNRESOLVED, RESOLVED] }
+    NewBookDamage:
+      type: object
+      required: [bookId, studentId, damageType]
+      properties:
+        bookId: { type: string }
+        studentId: { type: string }
+        damageType: { type: string, enum: [LOST, DAMAGED] }
+        description: { type: string }
+        penaltyAmount: { type: number, format: double, example: 500 }
+    Penalty:
+      type: object
+      required: [id, bookId, studentId, penaltyType, amount, paymentStatus]
+      properties:
+        id: { type: integer }
+        bookId: { type: string }
+        studentId: { type: string }
+        penaltyType: { type: string, enum: [LOST, DAMAGED] }
+        amount: { type: number, format: double, example: 500 }
+        paymentStatus: { type: string, enum: [UNPAID, PAID] }
+    UpdatePenalty:
+      type: object
+      required: [paymentStatus]
+      properties:
+        paymentStatus: { type: string, enum: [UNPAID, PAID] }
+    RegistrarStudent:
+      type: object
+      properties:
+        source: { type: string, example: registrar-mock }
+        externalKey: { type: string, example: '2026-00123' }
+        student:
+          type: object
+          properties:
+            studentId: { type: string }
+            name: { type: string }
+            enrollmentStatus: { type: string }
+    FinancePenaltyResponse:
+      type: object
+      properties:
+        source: { type: string, example: finance-mock }
+        externalKey: { type: string, example: '2026-00123' }
+        penalties:
+          type: array
+          items: { $ref: '#/components/schemas/Penalty' }
+    ProblemDetails:
+      type: object
+      required: [title, status, detail, instance]
+      properties:
+        type: { type: string, example: 'about:blank' }
+        title: { type: string, example: 'Not Found' }
+        status: { type: integer, example: 404 }
+        detail: { type: string, example: 'Requested record was not found.' }
+        instance: { type: string, example: '/api/v1/books/999' }
